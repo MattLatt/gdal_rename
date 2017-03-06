@@ -3,22 +3,20 @@
 //**********************************************************************************//
 // Desc: Command line executable to rename a GDAL dataset (including compagnions	//
 //		 files)	using it's SRS coordinates (only TIF, ECW fully tested). It was		//
-//		 designed initialy to rename tiled dataset in planar CRS (i.e. not fully	//
-//		 tested with geodesic CRS like WGS84...)									//
+//		 designed initialy to rename tiled dataset									//
 //		 																			//
 // Author: 	Mathieu Lattes (mathieu.lattes@yahoo.fr)								//
-//																					//
 //		 																			//
 // Version:	v0.0.5_20170303-01 : Added double coord formating						//
 //		 																			//
 // ToDo: Full test with other drivers												//
 //																					//
 //**********************************************************************************//
-// History:	v0.0.4_20170228-01 : Added Coord Sign Policy							//
-//			v0.0.3_20170224-01 : Small buggs fixs (only first companion file renamed//
+// History:	v0.0.4_20170228-01: Added Coord Sign Policy								//
+//			v0.0.3_20170224-01: Small buggs fixs (only first companion file renamed//
 //								, Missing EQUAL() for -f test...					//
-//			v0.0.2_20170106-01 : using std lib instead of char * as str container	//
-//			v0.0.1 : initial release without std lib								//
+//			v0.0.2_20170106-01: using std lib instead of char * as str container	//
+//			v0.0.1: initial release without std lib									//
 //																					//
 //##################################################################################//
 
@@ -250,9 +248,6 @@ int main(int argc, char* argv[])
 			{
 			if( EQUAL(argv[i], "--help") || EQUAL(argv[i], "-h") )
 				{ printUsage = true; }
-/*
-			if( EQUAL(argv[i], "--input-file-to-rename") || EQUAL(argv[i], "-i") )
-				{ pszFilePath = argv[i+1]; }*/
 
 			if( EQUAL(argv[i], "--refpoint") || EQUAL(argv[i], "-r") ) //WN, WS, EN, ES
 				{
@@ -298,10 +293,9 @@ int main(int argc, char* argv[])
 			}
 		pszFilePath = argv [argc - 1];
 		}
+
 	if (argc <= 1 || printUsage) 
-		{
-		Usage();
-		}
+		{ Usage(); }
 
     ::GDALDataset  *poDataset = NULL;
 

@@ -6,13 +6,13 @@ Overview:
 ------------------------------------------------------------------------------
 
 The goal of this application is to allow the user to rename a dataset regarding 
-the geographic metadatas (i.e.: CRS coordinates) with some formating options 
-(Prefix, suffix, separator, zero left padding, digit numbers).
+the geographic metadatas (i.e.: coordinates) with some formating options 
+(Prefix, suffix, separator, zero left padding, numbers of digits, ...).
 It was originaly designed to be used on tiled datasets (as aerial orthophotos splited
 in 1 sq km tiles for example) to add a prefix or the zero left padding for sorting purpose.
 
-It is renaming one file at a time (the last parameter),so you'll have to use "for file" 
-batch command on windows or "find" shell command on linux to rename all the files
+It is renaming one file at a time (the last parameter),so you'll have to use command like
+"for file" on windows batch or "find" on linux shell to rename all the files
 of a folder.
 
 This repository contain only the cpp file, you can find a full Visual Studio 2010
@@ -27,7 +27,7 @@ Authors:
 Version:
 ------------------------------------------------------------------------------
 
-* 0.0.5_20170303-01	
+* v0.0.5_20170303-01: Added double coord formating
 
 Usage:
 ------------------------------------------------------------------------------
@@ -82,8 +82,6 @@ Parameters full descirption :
 
 History:
 ------------------------------------------------------------------------------
-* v0.0.5_20170303-01: Added double coord formating
-
 * v0.0.4_20170228-01: Added Coord Sign Policy
 
 * v0.0.3_20170224-01: small buggs correction (only first companion file
