@@ -333,6 +333,67 @@ int main(int argc, char* argv[])
 		if( poDataset->GetGeoTransform( adfGeoTransform ) == CE_None )
 			{
 			std::string sCoordPrintfStx ;
+/*
+			if ( EQUAL(pszPrintf, "") )
+				{
+				sCoordPrintfStx += "%";
+
+				if ( EQUALN(pszCoordSignType , "geo", 4) )
+					{sCoordPrintfStx+="c%";}
+				else if ( EQUALN(pszCoordSignType , "force", 4) )
+					{ sCoordPrintfStx +=  "+"; }
+				if ( pszCoordPadding && pszCoordLenght != "") //if real padding is made with %0n where n is a digit or %0* with extra param
+					{ 
+					if ( EQUALN(pszCoordType , "real", 4) )
+						{ sCoordPrintfStx = sCoordPrintfStx + "0" + pszCoordLenght + "." + pszCoordDecLenght; }
+					else
+						{ sCoordPrintfStx = sCoordPrintfStx + "." + pszCoordLenght;} 
+					}
+
+				if ( EQUALN(pszCoordType , "real", 4) )
+					{ sCoordPrintfStx += "f" ; }
+				else
+					{ sCoordPrintfStx += "d"; }
+				
+				sMainPrintfStx = pszPrefix + sCoordPrintfStx + pszCoordSep + sCoordPrintfStx + pszSuffix;
+				}
+			else
+				{ sMainPrintfStx = pszPrintf;}
+
+			double Coord0 = 0, Coord1 = 0;
+			char Sign0 = 0x00, Sign1 = 0x00;
+
+			if ( strlen(pszCoordRefPoint)>1)
+				{
+				Coord0 = getCoord(pszCoordRefPoint[0], adfGeoTransform, poDataset);
+				if ( EQUALN(pszCoordSignType , "geo", 4) )
+					{Sign0 = getCoordHemi(pszCoordRefPoint[0], adfGeoTransform, poDataset);}
+				Coord1 = getCoord(pszCoordRefPoint[1], adfGeoTransform, poDataset);
+				if ( EQUALN(pszCoordSignType , "geo", 4) )
+					{Sign1 = getCoordHemi(pszCoordRefPoint[1], adfGeoTransform, poDataset);}
+				}
+			else
+				{
+				Coord0 = getCoord('W', adfGeoTransform, poDataset);
+				if ( EQUALN(pszCoordSignType , "geo", 4) )
+					{Sign0 = getCoordHemi(pszCoordRefPoint[0], adfGeoTransform, poDataset);}
+				Coord1 = getCoord('N', adfGeoTransform, poDataset);
+				if ( EQUALN(pszCoordSignType , "geo", 4) )
+					{Sign1 = getCoordHemi(pszCoordRefPoint[1], adfGeoTransform, poDataset);}
+				}
+
+			int baseDigits = std::max(nDigits(Coord0), nDigits(Coord1));
+			int formatDigits = atoi(pszCoordLenght);
+
+			if (baseDigits > formatDigits )
+				{
+				int exp = baseDigits-formatDigits;
+				Coord0 = Coord0 / pow(10.,exp);
+				Coord1 = Coord1 / pow(10.,exp);
+				}
+			
+			int iCoord0 = (int) Coord0;
+			int iCoord1 = (int) Coord1;*/
 
 			double Coord0 = .0, Coord1 = .0;
 			int iCoord0 = 0, iCoord1 = 0; 
@@ -359,11 +420,14 @@ int main(int argc, char* argv[])
 
 				if ( EQUALN(pszCoordType , "real", 4) )
 					{
+					
 					if ( pszCoordPadding && pszCoordLenght != "") //if real padding is made with %0n where n is a digit or %0* with extra param
 						{ sCoordPrintfStx = sCoordPrintfStx + "0" + pszCoordLenght + "." + pszCoordDecLenght + "f"; }
+					
 					}
 				else
 					{
+					
 					if ( pszCoordPadding && pszCoordLenght != "") //if real padding is made with %0n where n is a digit or %0* with extra param
 						{ sCoordPrintfStx = sCoordPrintfStx + "." + pszCoordLenght + "d"; }
 
@@ -441,7 +505,14 @@ int main(int argc, char* argv[])
 			::GDALClose((GDALDatasetH)poDataset);
 			return 1;
 			}
+
 		}
+	//Not necessary handled by ::GDALOpen
+	/*else
+		{
+		::CPLprintf( "Sorry the dataset \"%s\" is not supported by GDAL or does not exist or is corrupted, Exiting...\n", pszFilePath);
+		}
+	*/
 	return 0;
 	}
 

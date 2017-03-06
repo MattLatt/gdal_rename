@@ -27,14 +27,14 @@ Authors:
 Version:
 ------------------------------------------------------------------------------
 
-* 0.0.3_20170224-01
+* 0.0.5_20170303-01	
 
 Usage:
 ------------------------------------------------------------------------------
 
 gdal_rename [--help|-h] [--refpoint|-r]
                 {
-					[--coord-zero-padding|-z] [--coord-length|-l]
+					[--coord-zero-padding|-z] [--coord-length|-l] [--coord-decimal-length|-d]
 					[--coord-type|-t] [--coord-sep|-s] [--prefix|-p]
 					[--suffix|-s] 
 				} 
@@ -57,6 +57,8 @@ Parameters full descirption :
 						 digits (i.e.: using 4 with a easting value of
 						 621000.0 will print 06210 with zero padding and
 						 6210 without)
+
+* **--coord-decimal-length|-d**: number of digits to use in decimal part for real coordinates\n"
 						
 * **--coord-zero-padding|-z**: wether or not left padding coordinate with 0 
 							   if there is an inequal number of digits between
@@ -80,6 +82,10 @@ Parameters full descirption :
 
 History:
 ------------------------------------------------------------------------------
+* v0.0.5_20170303-01: Added double coord formating
+
+* v0.0.4_20170228-01: Added Coord Sign Policy
+
 * v0.0.3_20170224-01: small buggs correction (only first companion file
 					renamed, Missing EQUAL() for -f parameter test...
 
