@@ -32,15 +32,15 @@ Version:
 Usage:
 ------------------------------------------------------------------------------
 
-gdal_rename [--help|-h] [--refpoint|-r]\s\s
-                {\s\s
-					[--coord-zero-padding|-z] [--coord-length|-l] [--coord-decimal-length|-d]\s\s
-					[--coord-type|-t] [--coord-sep|-s] [--prefix|-p]\s\s
-					[--suffix|-s]\s\s
-				}\s\s
-			|\s\s
-				{ [--printf-syntax|-f] }\s\s
-			dataset_to_rename\s\s
+gdal_rename [--help|-h] [--refpoint|-r]  
+                {  
+					[--coord-zero-padding|-z] [--coord-length|-l] [--coord-decimal-length|-d]  
+					[--coord-type|-t] [--coord-sep|-s] [--prefix|-p]  
+					[--suffix|-s]  
+				}   
+			|   
+				{ [--printf-syntax|-f] }   
+			dataset_to_rename   
 
 Parameters full descirption :
 
