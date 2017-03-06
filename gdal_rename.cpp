@@ -9,13 +9,15 @@
 // Author: 	Mathieu Lattes (mathieu.lattes@yahoo.fr)								//
 //																					//
 //		 																			//
-// Version:	v0.0.3_20170224-01 : Small buggs correction (only first companion file	//
-//								renamed, Missing EQUAL() for -f test...				//
+// Version:	v0.0.5_20170303-01 : Added double coord formating						//
 //		 																			//
-// ToDo: Fully test for other drivers and double coordinates						//
+// ToDo: Full test with other drivers												//
 //																					//
 //**********************************************************************************//
-// History:	v0.0.2_20170106-01 : using std lib instead of char * as str container	//
+// History:	v0.0.4_20170228-01 : Added Coord Sign Policy							//
+//			v0.0.3_20170224-01 : Small buggs fixs (only first companion file renamed//
+//								, Missing EQUAL() for -f test...					//
+//			v0.0.2_20170106-01 : using std lib instead of char * as str container	//
 //			v0.0.1 : initial release without std lib								//
 //																					//
 //##################################################################################//
@@ -34,38 +36,65 @@
 #include <math.h>
 
 //***********************************************************************//
-//!return number of digits
+//!return number of digits from integer part of double
 //***********************************************************************//
 int nDigits (double dValue)
 	{
-	/*
-	int Count =1;
-
-	while ( dValue > 10.) 
-		{
-		dValue /= 10. ;
-		++Count;
-		}
-	return Count;
-	*/
 	return int(ceil(log10(dValue)));
 	}
 
 //***********************************************************************//
 //!get integer coordinate from GDALDataset
 //***********************************************************************//
-int getCoord (char refPointPart, double *adfGeoTransform, GDALDataset *poDataset)
+double getCoord (char refPointPart, double *adfGeoTransform, GDALDataset *poDataset)
 	{
-	int Coord = 0;
+	double Coord = 0.;
+
 	switch ( refPointPart )
 		{
-		case 'W' : Coord = (int)adfGeoTransform[0]; break;
-		case 'E' : Coord = (int)(adfGeoTransform[0]+(poDataset->GetRasterXSize()*adfGeoTransform[1])); break;
-		case 'S' : Coord = (int)(adfGeoTransform[3]+(poDataset->GetRasterYSize()*adfGeoTransform[5])); break;
-		case 'N' : Coord = (int)adfGeoTransform[3]; break;
-		default	 : Coord = (int)adfGeoTransform[0]; 
+		case 'W' : Coord = adfGeoTransform[0]; break;
+		case 'E' : Coord = (adfGeoTransform[0]+(poDataset->GetRasterXSize()*adfGeoTransform[1])); break;
+		case 'S' : Coord = (adfGeoTransform[3]+(poDataset->GetRasterYSize()*adfGeoTransform[5])); break;
+		case 'N' : Coord = adfGeoTransform[3]; break;
+		default	 : Coord = adfGeoTransform[0]; 
 		}
+	
 	return Coord;
+	}
+
+//***********************************************************************//
+//!get char of coordinate hemisphere from GDALDataset
+//***********************************************************************//
+char getCoordHemi (char refPointPart, double *adfGeoTransform, GDALDataset *poDataset)
+	{
+	double Coord = 0.0;
+	char Hemi = 'N';
+
+	switch ( refPointPart )
+		{
+		case 'W' : Coord = adfGeoTransform[0]; break;
+		case 'E' : Coord = (adfGeoTransform[0]+(poDataset->GetRasterXSize()*adfGeoTransform[1])); break;
+		case 'S' : Coord = (adfGeoTransform[3]+(poDataset->GetRasterYSize()*adfGeoTransform[5])); break;
+		case 'N' : Coord = adfGeoTransform[3]; break;
+		default	 : Coord = adfGeoTransform[0]; 
+		}
+	
+	if ( Coord >= 0 )
+		{ 
+		if (refPointPart == 'W' || refPointPart == 'E')
+			{ Hemi = 'E'; }
+		else
+			{ Hemi = 'N'; }
+		}
+	else
+		{
+		if (refPointPart == 'W' || refPointPart == 'E')
+			{ Hemi = 'W'; }
+		else
+			{ Hemi = 'S'; }
+		}	
+
+	return Hemi;
 	}
 
 //***********************************************************************//
@@ -91,7 +120,7 @@ bool renameFileNoOverWrite (std::string sourcePath, std::string newPath)
 			//exit program
 			{
 			std::cout << "Error while renaming \"" << sourcePath << "\" to \"" << newPath << "\"" << std::endl;
-			std::cout << "Check if file is not already opened or check file access rights...." << std::endl ;
+			std::cout << "Check if file exist, is not already opened or check file access rights...." << std::endl ;
 			return 1;
 			}
 		}
@@ -154,9 +183,11 @@ static void Usage(const char* pszErrorMsg = NULL)
 			"                    high wheight digits (ie: using 4 with easting value of \n"
 			"                    621000.0 will print 06210 with zero padding and \n"
 			"                    6210 without)\n"
+			" --coord-decimal-length|-d: number of digits to use in decimal part for real coordinates\n"
 			" --coord-zero-padding|-z: wether or not padding coordinate with 0 if inequal \n"
 			"                          number of digitsbetween easting and northing\n \n"
 			" --coord-type|-t: 'int' or 'real' used to format coordinates\n"
+			" --coord-sign|-g: 'std': sign printed if negative, 'force': allways printed (+/-) or 'geo': hemisphere display E-W or N-S\n"
 			" --coord-sep|-s: separator of coordinates components when formating\n"
 			" --suffix|-x: suffix to use for the new file name format (ie: \n"
 			"              XXXXXXXXXXX_suffix.EXT)\n"
@@ -170,12 +201,29 @@ static void Usage(const char* pszErrorMsg = NULL)
     exit( 1 );
 	}
 
+//***********************************************************************//
+//!
+//***********************************************************************//
+bool checkRefPoint(const char* CoordRefPoint)
+	{
+	bool Success = false;
+	
+	if ( strlen(CoordRefPoint)==2)
+		{
+		if ( EQUAL(CoordRefPoint, "WN" ) || EQUAL(CoordRefPoint, "EN" ) || EQUAL(CoordRefPoint, "NW" ) || EQUAL(CoordRefPoint, "NE" ) ||
+			 EQUAL(CoordRefPoint, "WS" ) || EQUAL(CoordRefPoint, "ES" ) || EQUAL(CoordRefPoint, "SW" ) || EQUAL(CoordRefPoint, "ES" ) )
+			{ Success = true ; }
+		}
+
+	return Success;
+	}
 
 //***********************************************************************//
 //!Main
 //***********************************************************************//
 int main(int argc, char* argv[])
 	{
+	//for --config options
     ::EarlySetConfigOptions(argc, argv);
 
     ::GDALAllRegister();
@@ -185,8 +233,9 @@ int main(int argc, char* argv[])
 	bool		pszCoordPadding = true; 
 	bool		printUsage = false;
 	const char *pszCoordLenght = "7"; 
+	const char *pszCoordDecLenght = "3"; 
 	const char *pszCoordType = ""; //"reel"
-	//const char *pszCoordSign = "yes"; //"no"
+	const char *pszCoordSignType = "std"; // "std , force or geo"
 	const char *pszCoordSep = "_"; 
 	const char *pszPrefix = ""; 
 	const char *pszSuffix = "";
@@ -200,26 +249,36 @@ int main(int argc, char* argv[])
 		for( int i = 0; argv != NULL && argv[i] != NULL; i++ )
 			{
 			if( EQUAL(argv[i], "--help") || EQUAL(argv[i], "-h") )
-				{ printUsage = true;}
+				{ printUsage = true; }
 /*
 			if( EQUAL(argv[i], "--input-file-to-rename") || EQUAL(argv[i], "-i") )
 				{ pszFilePath = argv[i+1]; }*/
 
 			if( EQUAL(argv[i], "--refpoint") || EQUAL(argv[i], "-r") ) //WN, WS, EN, ES
-				{ pszCoordRefPoint = argv[i+1]; }
+				{
+				pszCoordRefPoint = argv[i+1]; 
+				
+				if ( !checkRefPoint(pszCoordRefPoint) )
+					{ pszCoordRefPoint = "WN"; } // Top Left by default
+				}
 
 			if( EQUAL(argv[i], "--coord-zero-padding") || EQUAL(argv[i], "-z") ) //default '', but can be any char supported by os for file name
 				{ pszCoordPadding = true; }
 
-			if( EQUAL(argv[i], "--coord-length") || EQUAL(argv[i], "-l") ) // size of number of coord to use for renaming /!\ if less than number removed by right
+			if( EQUAL(argv[i], "--coord-length") || EQUAL(argv[i], "-l") ) // size of number of digits for coord to use for renaming 
+				// /!\ if integer and less than number removed by right
+				// /!\ if double it include the "." and the decimal digits
 				{ pszCoordLenght = argv[i+1]; }
+
+			if( EQUAL(argv[i], "--coord-decimal-length") || EQUAL(argv[i], "-d") ) // size of number of coord to use for renaming /!\ if less than number removed by right
+				{ pszCoordDecLenght = argv[i+1]; }
 
 			if( EQUAL(argv[i], "--coord-type") || EQUAL(argv[i], "-t") ) // default int 
 				{ pszCoordType = argv[i+1]; }
 
-/*			if( EQUAL(argv[i], "--coord-sign") ) // +/- or  N/S - E/W
-				{ pszFilePath = argv[i+1]; }
-*/
+			if( EQUAL(argv[i], "--coord-sign") || EQUAL(argv[i], "-g")  ) //std: if negative, force: +/- or geo: N/S - E/W
+				{ pszCoordSignType = argv[i+1]; }
+
 			if( EQUAL(argv[i], "--coord-sep") || EQUAL(argv[i], "-s") ) //any char
 				{ pszCoordSep = argv[i+1]; }
 
@@ -244,13 +303,7 @@ int main(int argc, char* argv[])
 		Usage();
 		}
 
-	//Setting env vars 
-
-	//::CPLSetConfigOption( "GDAL_DATA", pszGdalDataPath );
-	//::CPLSetConfigOption( "PROJ_LIB", pszProjLibPath );
-
     ::GDALDataset  *poDataset = NULL;
-    //::GDALAllRegister();
 
 	std::string inputDataset = pszFilePath;
 	
@@ -265,7 +318,6 @@ int main(int argc, char* argv[])
 
 
 	poDataset = (GDALDataset *) ::GDALOpen( pszFilePath, GA_ReadOnly );
-	//poDataset = (GDALDataset *) GDALOpen(  "K:\\###DataTest\\Raster\\TIF\\12210_60730.tif", GA_ReadOnly );
    
 	if( poDataset != NULL )
 		{
@@ -282,51 +334,85 @@ int main(int argc, char* argv[])
 			{
 			std::string sCoordPrintfStx ;
 
+			double Coord0 = .0, Coord1 = .0;
+			int iCoord0 = 0, iCoord1 = 0; 
+			char Sign0 = 0x00, Sign1 = 0x00;
+
+			Coord0 = getCoord(pszCoordRefPoint[0], adfGeoTransform, poDataset);
+			if ( EQUALN(pszCoordSignType , "geo", 4) )
+				{Sign0 = getCoordHemi(pszCoordRefPoint[0], adfGeoTransform, poDataset);}
+
+			Coord1 = getCoord(pszCoordRefPoint[1], adfGeoTransform, poDataset);
+			if ( EQUALN(pszCoordSignType , "geo", 4) )
+				{Sign1 = getCoordHemi(pszCoordRefPoint[1], adfGeoTransform, poDataset);}
+
+			//
 			if ( EQUAL(pszPrintf, "") )
 				{
 				sCoordPrintfStx += "%";
-				if ( pszCoordPadding )
-					{ sCoordPrintfStx +=  "."; }
-				if ( pszCoordLenght != "" )
-					{ sCoordPrintfStx += pszCoordLenght ; }
+
+				//Sign formatting
+				if ( EQUALN(pszCoordSignType , "geo", 4) ) // E/W or N/S adding an extra %c to add the char
+					{sCoordPrintfStx+="c%";}
+				else if ( EQUALN(pszCoordSignType , "force", 4) )
+					{ sCoordPrintfStx +=  "+"; }
+
 				if ( EQUALN(pszCoordType , "real", 4) )
-					{ sCoordPrintfStx += "f" ; }
+					{
+					if ( pszCoordPadding && pszCoordLenght != "") //if real padding is made with %0n where n is a digit or %0* with extra param
+						{ sCoordPrintfStx = sCoordPrintfStx + "0" + pszCoordLenght + "." + pszCoordDecLenght + "f"; }
+					}
 				else
-					{ sCoordPrintfStx += "d"; }
-				
+					{
+					if ( pszCoordPadding && pszCoordLenght != "") //if real padding is made with %0n where n is a digit or %0* with extra param
+						{ sCoordPrintfStx = sCoordPrintfStx + "." + pszCoordLenght + "d"; }
+
+					int baseDigits = std::max(nDigits(Coord0), nDigits(Coord1));
+					int formatDigits = atoi(pszCoordLenght);
+
+					iCoord0 = (int) Coord0;
+					iCoord1 = (int) Coord1;
+
+					if (baseDigits > formatDigits )
+						{
+						int exp = baseDigits-formatDigits;
+						iCoord0 = Coord0 / pow(10.,exp);
+						iCoord1 = Coord1 / pow(10.,exp);
+						}
+					}
+
 				sMainPrintfStx = pszPrefix + sCoordPrintfStx + pszCoordSep + sCoordPrintfStx + pszSuffix;
 				}
 			else
 				{ sMainPrintfStx = pszPrintf;}
 
-			int Coord0 = 0, Coord1 = 0;
-
-			if ( strlen(pszCoordRefPoint)>1)
-				{
-				Coord0 = getCoord(pszCoordRefPoint[0], adfGeoTransform, poDataset);
-				Coord1 = getCoord(pszCoordRefPoint[1], adfGeoTransform, poDataset);
-				}
-			else
-				{
-				Coord0 = getCoord('W', adfGeoTransform, poDataset);
-				Coord1 = getCoord('N', adfGeoTransform, poDataset);
-				}
-
-			int baseDigits = std::max(nDigits(Coord0), nDigits(Coord1));
-			int formatDigits = atoi(pszCoordLenght);
-
-			if (baseDigits > formatDigits )
-				{
-				int exp = baseDigits-formatDigits;
-				Coord0 = Coord0 / pow(10.,exp);
-				Coord1 = Coord1 / pow(10.,exp);
-				}
-
 			char NewFileNameBuff [256] = "\0";
 			char* pszNewFileName = (char*)&NewFileNameBuff;
 
-			//Attention rajouter la conv en entier sur n char
-			::CPLsnprintf(pszNewFileName, 256, sMainPrintfStx.c_str(), Coord0 , Coord1);
+			try
+				{
+				if ( EQUALN(pszCoordType , "real", 4) ) 
+					{
+					if ( EQUALN(pszCoordSignType , "geo", 4) )
+						{::CPLsnprintf(pszNewFileName, 256, sMainPrintfStx.c_str(), Sign0 ,Coord0, Sign1 , Coord1);}
+					else
+						{::CPLsnprintf(pszNewFileName, 256, sMainPrintfStx.c_str(), Coord0 , Coord1);}
+					}
+				else
+					{
+					if ( EQUALN(pszCoordSignType , "geo", 4) )
+						{::CPLsnprintf(pszNewFileName, 256, sMainPrintfStx.c_str(), Sign0 ,iCoord0, Sign1 , iCoord1);}
+					else
+						{::CPLsnprintf(pszNewFileName, 256, sMainPrintfStx.c_str(), iCoord0 , iCoord1);}
+					}
+				}
+			catch (...)
+				{
+				::CPLprintf( "/!\ printf issue while renaming file \"%s\"\nIf you used --printf-syntax|-f check it is right\notherwise please submit the bugg at https://github.com/MattLatt/gdal_rename\n", pszFilePath);
+				::GDALClose((GDALDatasetH)poDataset);
+				return 1;
+				}
+
 
 			::GDALClose((GDALDatasetH)poDataset);
 
@@ -355,13 +441,7 @@ int main(int argc, char* argv[])
 			::GDALClose((GDALDatasetH)poDataset);
 			return 1;
 			}
-
 		}
-	else
-		{
-		::CPLprintf( "Sorry the dataset \"%s\" is not supported by GDAL (or corrupted...), Exiting...\n", pszFilePath);
-		}
-
 	return 0;
 	}
 
