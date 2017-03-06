@@ -33,14 +33,14 @@ Usage:
 ------------------------------------------------------------------------------
 
 gdal_rename [--help|-h] [--refpoint|-r]  
-&nbsp;&nbsp;&nbsp;&nbsp;{  
-&nbsp;&nbsp;&nbsp;&nbsp;[--coord-zero-padding|-z] [--coord-length|-l] [--coord-decimal-length|-d]  
-&nbsp;&nbsp;&nbsp;&nbsp;[--coord-type|-t] [--coord-sep|-s] [--prefix|-p]  
-&nbsp;&nbsp;&nbsp;&nbsp;[--suffix|-s]  
-&nbsp;&nbsp;&nbsp;&nbsp;}   
-&nbsp;&nbsp;|   
-&nbsp;&nbsp;&nbsp;&nbsp;{ [--printf-syntax|-f] }   
-&nbsp;&nbsp;dataset_to_rename   
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;{  
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;[--coord-zero-padding|-z] [--coord-length|-l] [--coord-decimal-length|-d]  
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;[--coord-type|-t] [--coord-sep|-s] [--prefix|-p]  
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;[--suffix|-s]  
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;}   
+&nbsp;&nbsp;&nbsp;&nbsp;|   
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;{ [--printf-syntax|-f] }   
+&nbsp;&nbsp;&nbsp;&nbsp;dataset_to_rename   
 
 Parameters full descirption :
 
