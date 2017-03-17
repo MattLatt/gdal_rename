@@ -27,7 +27,8 @@ Authors:
 Version:
 ------------------------------------------------------------------------------
 
-* v0.0.5_20170303-01: Added double coord formating
+* v0.0.6_20170303-01 : Changed EQUALN to EQUAL on some tests and added companion 
+					   files for jp2, j2k and img datasets.
 
 Usage:
 ------------------------------------------------------------------------------
@@ -82,6 +83,8 @@ Parameters full descirption :
 
 History:
 ------------------------------------------------------------------------------
+* v0.0.5_20170303-01: Added double coord formating
+
 * v0.0.4_20170228-01: Added Coord Sign Policy
 
 * v0.0.3_20170224-01: small buggs correction (only first companion file
