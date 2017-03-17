@@ -10,6 +10,7 @@ the geographic metadatas (i.e.: coordinates) with some formating options
 (Prefix, suffix, separator, zero left padding, numbers of digits, ...).
 It was originaly designed to be used on tiled datasets (as aerial orthophotos splited
 in 1 sq km tiles for example) to add a prefix or the zero left padding for sorting purpose.
+It is also usefull to update the naming pattern of a dataset which CRS as changed via gdalwarp.
 
 It is renaming one file at a time (the last parameter),so you'll have to use command like
 "for file" on windows batch or "find" on linux shell to rename all the files
