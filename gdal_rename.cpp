@@ -6,17 +6,22 @@
 //		 designed initialy to rename tiled dataset									//
 //		 																			//
 // Author: 	Mathieu Lattes (mathieu.lattes@yahoo.fr)								//
-//		 																			//
-// Version:	v0.0.5_20170303-01 : Added double coord formating						//
-//		 																			//
-// ToDo: Full test with other drivers												//
 //																					//
+//		 																			//
+// Version:	v0.0.6_20170303-01 : Changed EQUALN to EQUAL on some tests and added	//
+//			companion files for jp2, j2k and img datasets.							//
+//		 																			//
+// ToDo: Full test with other drivers, add CRS name or code	to the renaming policy	//
+//		 Add the option to output the batch command instead of doing the rename to 	//
+//		 build a batch command file.												//
+//		 i.e. gdal_rename ... > RenameDataset.bat									//
 //**********************************************************************************//
-// History:	v0.0.4_20170228-01: Added Coord Sign Policy								//
-//			v0.0.3_20170224-01: Small buggs fixs (only first companion file renamed//
+// History:	v0.0.5_20170303-01 : Added double coord formating						//
+//			v0.0.4_20170228-01 : Added Coord Sign Policy							//
+//			v0.0.3_20170224-01 : Small buggs fixs (only first companion file renamed//
 //								, Missing EQUAL() for -f test...					//
-//			v0.0.2_20170106-01: using std lib instead of char * as str container	//
-//			v0.0.1: initial release without std lib									//
+//			v0.0.2_20170106-01 : using std lib instead of char * as str container	//
+//			v0.0.1 : initial release without std lib								//
 //																					//
 //##################################################################################//
 
@@ -28,13 +33,16 @@
 #include "cpl_conv.h"
 #include "cpl_vsi.h"
 
+#include "json_object.h"
+#include "ogr_srs_api.h"
+
 #include "commonutils.h"
 
 #include <string>
 #include <math.h>
 
 //***********************************************************************//
-//!return number of digits from integer part of double
+//!Return number of digits from integer part of double
 //***********************************************************************//
 int nDigits (double dValue)
 	{
@@ -42,7 +50,7 @@ int nDigits (double dValue)
 	}
 
 //***********************************************************************//
-//!get integer coordinate from GDALDataset
+//!Get integer coordinate from GDALDataset
 //***********************************************************************//
 double getCoord (char refPointPart, double *adfGeoTransform, GDALDataset *poDataset)
 	{
@@ -61,7 +69,7 @@ double getCoord (char refPointPart, double *adfGeoTransform, GDALDataset *poData
 	}
 
 //***********************************************************************//
-//!get char of coordinate hemisphere from GDALDataset
+//!Get char of coordinate hemisphere from GDALDataset
 //***********************************************************************//
 char getCoordHemi (char refPointPart, double *adfGeoTransform, GDALDataset *poDataset)
 	{
@@ -96,7 +104,7 @@ char getCoordHemi (char refPointPart, double *adfGeoTransform, GDALDataset *poDa
 	}
 
 //***********************************************************************//
-//! Call gdal rename function and rename old file if already existing
+//!Call VSIL rename function and rename old file if already existing
 //***********************************************************************//
 bool renameFileNoOverWrite (std::string sourcePath, std::string newPath)
 	{
@@ -119,14 +127,14 @@ bool renameFileNoOverWrite (std::string sourcePath, std::string newPath)
 			{
 			std::cout << "Error while renaming \"" << sourcePath << "\" to \"" << newPath << "\"" << std::endl;
 			std::cout << "Check if file exist, is not already opened or check file access rights...." << std::endl ;
-			return 1;
+			return false;
 			}
 		}
 
 	}
 
 //***********************************************************************//
-//! get world file extension of a GDALDataset
+//!Get world file extension of a GDALDataset
 //***********************************************************************//
 std::string getWorldFileExt (std::string inputFile)
 	{	
@@ -142,8 +150,8 @@ std::string getWorldFileExt (std::string inputFile)
 
 
 //***********************************************************************//
-//! get an array of compagnon files extensions of a dataset (ie: tfw, prj
-//! for a tif file)
+//!Get an array of companion files extensions of a dataset (ie: tfw, prj
+//!for a tif file). Need to be populated for other datasets !!!
 //***********************************************************************//
 std::vector<std::string> getCompFilesExt (std::string inputFile)
 	{	
@@ -152,14 +160,26 @@ std::vector<std::string> getCompFilesExt (std::string inputFile)
 	
 	compFilesExt.push_back(getWorldFileExt(inputFile));
 
-	if ( inputExt == "tif")
+	if ( EQUAL(inputExt.c_str(), "tif"))
 		{ compFilesExt.push_back("prj"); }
 
-	if ( inputExt == "ecw")
+	if ( EQUAL(inputExt.c_str(), "ecw"))
 		{ compFilesExt.push_back("ers"); }
+
+	if ( EQUAL(inputExt.c_str(), "img"))
+		{
+		compFilesExt.push_back("led");
+		compFilesExt.push_back("nul");
+		compFilesExt.push_back("trl");
+		compFilesExt.push_back("vol");
+		}
+	
+	if ( EQUAL(inputExt.c_str(), "jp2") || EQUAL(inputExt.c_str(), "j2k"))
+		{ compFilesExt.push_back("prj"); }
 
 	return compFilesExt;
 	}
+
 
 /************************************************************************/
 /*                               Usage()                                */
@@ -183,7 +203,7 @@ static void Usage(const char* pszErrorMsg = NULL)
 			"                    6210 without)\n"
 			" --coord-decimal-length|-d: number of digits to use in decimal part for real coordinates\n"
 			" --coord-zero-padding|-z: wether or not padding coordinate with 0 if inequal \n"
-			"                          number of digitsbetween easting and northing\n \n"
+			"                          number of digits between easting and northing\n \n"
 			" --coord-type|-t: 'int' or 'real' used to format coordinates\n"
 			" --coord-sign|-g: 'std': sign printed if negative, 'force': allways printed (+/-) or 'geo': hemisphere display E-W or N-S\n"
 			" --coord-sep|-s: separator of coordinates components when formating\n"
@@ -200,7 +220,7 @@ static void Usage(const char* pszErrorMsg = NULL)
 	}
 
 //***********************************************************************//
-//!
+//!Check whether or not the given refpoint is good
 //***********************************************************************//
 bool checkRefPoint(const char* CoordRefPoint)
 	{
@@ -216,9 +236,9 @@ bool checkRefPoint(const char* CoordRefPoint)
 	return Success;
 	}
 
-//***********************************************************************//
+//#######################################################################//
 //!Main
-//***********************************************************************//
+//#######################################################################//
 int main(int argc, char* argv[])
 	{
 	//for --config options
@@ -271,7 +291,7 @@ int main(int argc, char* argv[])
 			if( EQUAL(argv[i], "--coord-type") || EQUAL(argv[i], "-t") ) // default int 
 				{ pszCoordType = argv[i+1]; }
 
-			if( EQUAL(argv[i], "--coord-sign") || EQUAL(argv[i], "-g")  ) //std: if negative, force: +/- or geo: N/S - E/W
+			if( EQUAL(argv[i], "--coord-sign") || EQUAL(argv[i], "-g")  ) //std: printted if negative, force: +/- or geo: N/S - E/W
 				{ pszCoordSignType = argv[i+1]; }
 
 			if( EQUAL(argv[i], "--coord-sep") || EQUAL(argv[i], "-s") ) //any char
@@ -315,90 +335,21 @@ int main(int argc, char* argv[])
    
 	if( poDataset != NULL )
 		{
-		/*int Width = poDataset->GetRasterXSize();
-		int Height = poDataset->GetRasterXSize();
-		const char * folder = poDataset->GetDescription();*/
-		double        adfGeoTransform[6];
-		/*printf( "Driver: %s/%s\n", poDataset->GetDriver()->GetDescription(), poDataset->GetDriver()->GetMetadataItem( GDAL_DMD_LONGNAME ) );
-		printf( "Size is %dx%dx%d\n", poDataset->GetRasterXSize(), poDataset->GetRasterYSize(), poDataset->GetRasterCount() );
-		if( poDataset->GetProjectionRef()  != NULL )
-			{printf( "Projection is '%s'\n", poDataset->GetProjectionRef() );}
-		*/
+		
 		if( poDataset->GetGeoTransform( adfGeoTransform ) == CE_None )
 			{
 			std::string sCoordPrintfStx ;
-/*
-			if ( EQUAL(pszPrintf, "") )
-				{
-				sCoordPrintfStx += "%";
-
-				if ( EQUALN(pszCoordSignType , "geo", 4) )
-					{sCoordPrintfStx+="c%";}
-				else if ( EQUALN(pszCoordSignType , "force", 4) )
-					{ sCoordPrintfStx +=  "+"; }
-				if ( pszCoordPadding && pszCoordLenght != "") //if real padding is made with %0n where n is a digit or %0* with extra param
-					{ 
-					if ( EQUALN(pszCoordType , "real", 4) )
-						{ sCoordPrintfStx = sCoordPrintfStx + "0" + pszCoordLenght + "." + pszCoordDecLenght; }
-					else
-						{ sCoordPrintfStx = sCoordPrintfStx + "." + pszCoordLenght;} 
-					}
-
-				if ( EQUALN(pszCoordType , "real", 4) )
-					{ sCoordPrintfStx += "f" ; }
-				else
-					{ sCoordPrintfStx += "d"; }
-				
-				sMainPrintfStx = pszPrefix + sCoordPrintfStx + pszCoordSep + sCoordPrintfStx + pszSuffix;
-				}
-			else
-				{ sMainPrintfStx = pszPrintf;}
-
-			double Coord0 = 0, Coord1 = 0;
-			char Sign0 = 0x00, Sign1 = 0x00;
-
-			if ( strlen(pszCoordRefPoint)>1)
-				{
-				Coord0 = getCoord(pszCoordRefPoint[0], adfGeoTransform, poDataset);
-				if ( EQUALN(pszCoordSignType , "geo", 4) )
-					{Sign0 = getCoordHemi(pszCoordRefPoint[0], adfGeoTransform, poDataset);}
-				Coord1 = getCoord(pszCoordRefPoint[1], adfGeoTransform, poDataset);
-				if ( EQUALN(pszCoordSignType , "geo", 4) )
-					{Sign1 = getCoordHemi(pszCoordRefPoint[1], adfGeoTransform, poDataset);}
-				}
-			else
-				{
-				Coord0 = getCoord('W', adfGeoTransform, poDataset);
-				if ( EQUALN(pszCoordSignType , "geo", 4) )
-					{Sign0 = getCoordHemi(pszCoordRefPoint[0], adfGeoTransform, poDataset);}
-				Coord1 = getCoord('N', adfGeoTransform, poDataset);
-				if ( EQUALN(pszCoordSignType , "geo", 4) )
-					{Sign1 = getCoordHemi(pszCoordRefPoint[1], adfGeoTransform, poDataset);}
-				}
-
-			int baseDigits = std::max(nDigits(Coord0), nDigits(Coord1));
-			int formatDigits = atoi(pszCoordLenght);
-
-			if (baseDigits > formatDigits )
-				{
-				int exp = baseDigits-formatDigits;
-				Coord0 = Coord0 / pow(10.,exp);
-				Coord1 = Coord1 / pow(10.,exp);
-				}
-			
-			int iCoord0 = (int) Coord0;
-			int iCoord1 = (int) Coord1;*/
 
 			double Coord0 = .0, Coord1 = .0;
 			int iCoord0 = 0, iCoord1 = 0; 
 			char Sign0 = 0x00, Sign1 = 0x00;
 
 			Coord0 = getCoord(pszCoordRefPoint[0], adfGeoTransform, poDataset);
-			if ( EQUALN(pszCoordSignType , "geo", 4) )
+			if ( EQUAL(pszCoordSignType , "geo") )
 				{Sign0 = getCoordHemi(pszCoordRefPoint[0], adfGeoTransform, poDataset);}
 
 			Coord1 = getCoord(pszCoordRefPoint[1], adfGeoTransform, poDataset);
-			if ( EQUALN(pszCoordSignType , "geo", 4) )
+			if ( EQUAL(pszCoordSignType , "geo") )
 				{Sign1 = getCoordHemi(pszCoordRefPoint[1], adfGeoTransform, poDataset);}
 
 			//
@@ -407,12 +358,12 @@ int main(int argc, char* argv[])
 				sCoordPrintfStx += "%";
 
 				//Sign formatting
-				if ( EQUALN(pszCoordSignType , "geo", 4) ) // E/W or N/S adding an extra %c to add the char
+				if ( EQUAL(pszCoordSignType , "geo") ) // E/W or N/S adding an extra %c to add the char
 					{sCoordPrintfStx+="c%";}
 				else if ( EQUALN(pszCoordSignType , "force", 4) )
 					{ sCoordPrintfStx +=  "+"; }
 
-				if ( EQUALN(pszCoordType , "real", 4) )
+				if ( EQUAL(pszCoordType , "real") )
 					{
 					
 					if ( pszCoordPadding && pszCoordLenght != "") //if real padding is made with %0n where n is a digit or %0* with extra param
@@ -449,16 +400,16 @@ int main(int argc, char* argv[])
 
 			try
 				{
-				if ( EQUALN(pszCoordType , "real", 4) ) 
+				if ( EQUAL(pszCoordType , "real") ) 
 					{
-					if ( EQUALN(pszCoordSignType , "geo", 4) )
+					if ( EQUAL(pszCoordSignType , "geo") )
 						{::CPLsnprintf(pszNewFileName, 256, sMainPrintfStx.c_str(), Sign0 ,Coord0, Sign1 , Coord1);}
 					else
 						{::CPLsnprintf(pszNewFileName, 256, sMainPrintfStx.c_str(), Coord0 , Coord1);}
 					}
 				else
 					{
-					if ( EQUALN(pszCoordSignType , "geo", 4) )
+					if ( EQUAL(pszCoordSignType , "geo") )
 						{::CPLsnprintf(pszNewFileName, 256, sMainPrintfStx.c_str(), Sign0 ,iCoord0, Sign1 , iCoord1);}
 					else
 						{::CPLsnprintf(pszNewFileName, 256, sMainPrintfStx.c_str(), iCoord0 , iCoord1);}
@@ -466,7 +417,7 @@ int main(int argc, char* argv[])
 				}
 			catch (...)
 				{
-				::CPLprintf( "/!\ printf issue while renaming file \"%s\"\nIf you used --printf-syntax|-f check it is right\notherwise please submit the bugg at https://github.com/MattLatt/gdal_rename\n", pszFilePath);
+				::CPLprintf( "/!\ printf issue while building new file name \"%s\"\nIf you used --printf-syntax|-f check it is right\notherwise please submit the bugg at https://github.com/MattLatt/gdal_rename\n", pszFilePath);
 				::GDALClose((GDALDatasetH)poDataset);
 				return 1;
 				}
@@ -477,6 +428,8 @@ int main(int argc, char* argv[])
 			std::string sNewFilePath = sDirName + "\\" + pszNewFileName + "." + sExt ;
 
 			bool Success =  renameFileNoOverWrite(pszFilePath, sNewFilePath) ;
+			if (!Success)
+				{ ::CPLprintf( "/!\ printf issue while renaming file \"%s\"\nCheck the file is not locked or still exist !!!\n", pszFilePath);}
 
 			std::vector<std::string> CompFilesExts = getCompFilesExt(pszFilePath);
 			std::vector<std::string>::iterator it = CompFilesExts.begin();
@@ -499,14 +452,7 @@ int main(int argc, char* argv[])
 			::GDALClose((GDALDatasetH)poDataset);
 			return 1;
 			}
-
 		}
-	//Not necessary handled by ::GDALOpen
-	/*else
-		{
-		::CPLprintf( "Sorry the dataset \"%s\" is not supported by GDAL or does not exist or is corrupted, Exiting...\n", pszFilePath);
-		}
-	*/
 	return 0;
 	}
 
