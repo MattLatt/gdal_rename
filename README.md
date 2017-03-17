@@ -1,5 +1,5 @@
 # gdal_rename
-===================================================
+=============
 This repository contain the cpp file of the gdal_rename application
 
 Overview:
