@@ -1,22 +1,29 @@
 //##################################################################################//
 //									gdal_rename										//
 //**********************************************************************************//
-// Desc: Command line executable to rename a GDAL dataset (including compagnions	//
-//		 files)	using it's SRS coordinates (only TIF, ECW fully tested). It was		//
-//		 designed initialy to rename tiled dataset									//
+// Desc: Command line executable to rename a GDAL raster dataset with it's SRS 		//
+//		 coordinates including it's companion files (world file...) with some		//
+//		 formating options (Prefix, suffix, separator, left zero padding, numbers  	//
+//		 of digits,...). Orginaly it was made to rename tiled datasets downloaded  	//
+//		 from manysources to have consistent namming pattern or to update the name 	//
+//		 after a SRS change with gdalwarp. 											//
+//		 																			//
 //		 																			//
 // Author: 	Mathieu Lattes (mathieu.lattes@yahoo.fr)								//
 //																					//
 //		 																			//
-// Version:	v0.0.6_20170303-01 : Changed EQUALN to EQUAL on some tests and added	//
-//			companion files for jp2, j2k and img datasets.							//
+// Version:	v0.0.7_20170320-01 : Added --output-console option to allow the print	//
+//			(in the console) of the command line to perform the rename instead of	//
+//			doing it. It allow user to create a batch file using redirection	 	//
+//			operator of the system	console '>', '>>', '|'...						//
+//			Added a "sDirSep" with the OS dependant directory separator. 			//
 //		 																			//
 // ToDo: Full test with other drivers, add CRS name or code	to the renaming policy	//
-//		 Add the option to output the batch command instead of doing the rename to 	//
-//		 build a batch command file.												//
-//		 i.e. gdal_rename ... > RenameDataset.bat									//
+//																					//
 //**********************************************************************************//
-// History:	v0.0.5_20170303-01 : Added double coord formating						//
+// History:	v0.0.6_20170317-01 : Changed EQUALN to EQUAL on some tests and added	//
+//			companion files for jp2, j2k and img datasets.							//
+//			v0.0.5_20170303-01 : Added double coord formating						//
 //			v0.0.4_20170228-01 : Added Coord Sign Policy							//
 //			v0.0.3_20170224-01 : Small buggs fixs (only first companion file renamed//
 //								, Missing EQUAL() for -f test...					//
@@ -40,6 +47,12 @@
 
 #include <string>
 #include <math.h>
+
+#ifdef _WIN32
+std::string  sDirSep = "\\";
+#else //Linux or MacOsX
+std::string  sDirSep = "/";
+#endif
 
 //***********************************************************************//
 //!Return number of digits from integer part of double
@@ -180,7 +193,6 @@ std::vector<std::string> getCompFilesExt (std::string inputFile)
 	return compFilesExt;
 	}
 
-
 /************************************************************************/
 /*                               Usage()                                */
 /************************************************************************/
@@ -190,6 +202,7 @@ static void Usage(const char* pszErrorMsg = NULL)
 			"                   { [--coord-zero-padding|-z] [--coord-length|-l]\n"
 			"                     [--coord-type|-t] [--coord-sep|-s] [--prefix|-p]\n"
 			"                     [--suffix|-s] } | { [--printf-syntax|-f] }\n" 
+			"					[--output-console|-o]\n"
 			"					dataset_to_rename\n\n\n" );
 
     printf( " --help|-h: print this message\n"
@@ -211,7 +224,10 @@ static void Usage(const char* pszErrorMsg = NULL)
 			"              XXXXXXXXXXX_suffix.EXT)\n"
 			" --printf-syntax|-f: a string with printf syntax instead of all the previous parameters\n"
 			"                     (ie: Tiles_%.4d-%.4d_Lambert93) /!\ no syntaxic check\n"
-			"                     and only 2 substitution allowed for easting/northing\n");
+			"                     and only 2 substitution allowed for easting/northing\n"
+			" --output-console|-o: whether or not outpouting the console command to perform\n"
+			"					   the rename instead of doing it on the file system. 'win' or 'unix' to\n"
+			"					   output the command for windows batch or linux bash format\n");
 
     if( pszErrorMsg != NULL )
         fprintf(stderr, "\nFAILURE: %s\n", pszErrorMsg);
@@ -236,6 +252,28 @@ bool checkRefPoint(const char* CoordRefPoint)
 	return Success;
 	}
 
+//***********************************************************************//
+//!format the rename command line for output in the console
+//***********************************************************************//
+std::string formatRenameCmdLine(const char* pszSystemType, const char* pszSourceName, const char* pszNewName)
+	{
+	bool Success = false;
+	const char* pszCommand = "move";
+	std::string sCommandLine;
+
+	if ( EQUAL(pszSystemType, "unix") )
+		{ pszCommand = "mv"; }
+
+	sCommandLine += pszCommand;
+	sCommandLine += " \"";
+	sCommandLine += pszSourceName;
+	sCommandLine += "\" \"";
+	sCommandLine += pszNewName;
+	sCommandLine += "\"\n";	
+
+	return sCommandLine.c_str();
+	}
+
 //#######################################################################//
 //!Main
 //#######################################################################//
@@ -258,7 +296,7 @@ int main(int argc, char* argv[])
 	const char *pszPrefix = ""; 
 	const char *pszSuffix = "";
 	const char *pszPrintf= ""; // printf syntax for the whole renaming string ex: "Tile_%.4d_%.4d_SRS" /!\ no syntax check
-					
+	const char *pszOutputConsole = "";	//"win" or "unix"			
 
     argc = ::GDALGeneralCmdLineProcessor( argc, &argv, 0 );
 
@@ -277,24 +315,22 @@ int main(int argc, char* argv[])
 					{ pszCoordRefPoint = "WN"; } // Top Left by default
 				}
 
-			if( EQUAL(argv[i], "--coord-zero-padding") || EQUAL(argv[i], "-z") ) //default '', but can be any char supported by os for file name
+			if( EQUAL(argv[i], "--coord-zero-padding") || EQUAL(argv[i], "-z") )
 				{ pszCoordPadding = true; }
 
-			if( EQUAL(argv[i], "--coord-length") || EQUAL(argv[i], "-l") ) // size of number of digits for coord to use for renaming 
-				// /!\ if integer and less than number removed by right
-				// /!\ if double it include the "." and the decimal digits
-				{ pszCoordLenght = argv[i+1]; }
+			if( EQUAL(argv[i], "--coord-length") || EQUAL(argv[i], "-l") ) // number of digits for coord to use for renaming 
+				{ pszCoordLenght = argv[i+1]; }							   // /!\ if integer and less than number removed by right
 
 			if( EQUAL(argv[i], "--coord-decimal-length") || EQUAL(argv[i], "-d") ) // size of number of coord to use for renaming /!\ if less than number removed by right
 				{ pszCoordDecLenght = argv[i+1]; }
 
-			if( EQUAL(argv[i], "--coord-type") || EQUAL(argv[i], "-t") ) // default int 
+			if( EQUAL(argv[i], "--coord-type") || EQUAL(argv[i], "-t") ) // int or "real", default "int"
 				{ pszCoordType = argv[i+1]; }
 
-			if( EQUAL(argv[i], "--coord-sign") || EQUAL(argv[i], "-g")  ) //std: printted if negative, force: +/- or geo: N/S - E/W
+			if( EQUAL(argv[i], "--coord-sign") || EQUAL(argv[i], "-g")  ) //"std": sign printed if negative, "force": +/- or "geo": N/S - E/W, default "std"
 				{ pszCoordSignType = argv[i+1]; }
 
-			if( EQUAL(argv[i], "--coord-sep") || EQUAL(argv[i], "-s") ) //any char
+			if( EQUAL(argv[i], "--coord-sep") || EQUAL(argv[i], "-s") ) //any string
 				{ pszCoordSep = argv[i+1]; }
 
 			if( EQUAL(argv[i], "--prefix") || EQUAL(argv[i], "-p") ) //any string
@@ -306,9 +342,8 @@ int main(int argc, char* argv[])
 			if( EQUAL(argv[i], "--printf-syntax") || EQUAL(argv[i], "-f") ) // use instead of --coord-sign, --coord-padding, --coord-type, --coord-lenght, --prefix, --suffix
 				{ pszPrintf = argv[i+1]; }
 
-			/*
-			if( EQUAL(argv[i], "--generate-batch") ) //any string
-				{ pszSuffix = argv[i+1]; }*/
+			if( EQUAL(argv[i], "--output-console")|| EQUAL(argv[i], "-o")  ) //"win" or "unix", default empty performing the rename on the file system
+				{ pszOutputConsole = argv[i+1]; }
 
 			}
 		pszFilePath = argv [argc - 1];
@@ -327,7 +362,7 @@ int main(int argc, char* argv[])
 	std::string sBasename	= ::CPLGetBasename(pszFilePath);
 	
 	std::string sNewFileName;
-	std::string sCompFileName = sDirName + "\\" + sBasename + "." ;
+	std::string sCompFileName = sDirName + sDirSep + sBasename + "." ;
 	std::string sMainPrintfStx ;
 
 
@@ -335,7 +370,8 @@ int main(int argc, char* argv[])
    
 	if( poDataset != NULL )
 		{
-		
+		double        adfGeoTransform[6];
+
 		if( poDataset->GetGeoTransform( adfGeoTransform ) == CE_None )
 			{
 			std::string sCoordPrintfStx ;
@@ -425,11 +461,16 @@ int main(int argc, char* argv[])
 
 			::GDALClose((GDALDatasetH)poDataset);
 
-			std::string sNewFilePath = sDirName + "\\" + pszNewFileName + "." + sExt ;
+			std::string sNewFilePath = sDirName + sDirSep + pszNewFileName + "." + sExt ;
 
-			bool Success =  renameFileNoOverWrite(pszFilePath, sNewFilePath) ;
-			if (!Success)
-				{ ::CPLprintf( "/!\ printf issue while renaming file \"%s\"\nCheck the file is not locked or still exist !!!\n", pszFilePath);}
+			if ( EQUAL(pszOutputConsole, "") )
+				{
+				bool Success =  renameFileNoOverWrite(pszFilePath, sNewFilePath) ;
+				if (!Success)
+					{ ::CPLprintf( "/!\ printf issue while renaming file \"%s\"\nCheck the file is not locked or still exist !!!\n", pszFilePath); }
+				}
+			else
+				{ ::CPLprintf( formatRenameCmdLine( pszOutputConsole, pszFilePath, sNewFilePath.c_str()).c_str() );}
 
 			std::vector<std::string> CompFilesExts = getCompFilesExt(pszFilePath);
 			std::vector<std::string>::iterator it = CompFilesExts.begin();
@@ -439,9 +480,13 @@ int main(int argc, char* argv[])
 				std::string sCurCompFileName = sCompFileName;
 
 				sCurCompFileName += (*it).c_str();
-				std::string sNewCompFilePath = sDirName + "\\" + pszNewFileName + "." + (*it).c_str() ;
+				std::string sNewCompFilePath = sDirName + sDirSep + pszNewFileName + "." + (*it).c_str() ;
 			
-				Success =  renameFileNoOverWrite(sCurCompFileName, sNewCompFilePath) ;
+				if ( EQUAL(pszOutputConsole, "") )
+					{ renameFileNoOverWrite(sCurCompFileName, sNewCompFilePath) ; }
+				else
+					{ ::CPLprintf( formatRenameCmdLine( pszOutputConsole, sCurCompFileName.c_str(), sNewCompFilePath.c_str()).c_str() );}
+
 				++it;
 				}
 
@@ -452,7 +497,14 @@ int main(int argc, char* argv[])
 			::GDALClose((GDALDatasetH)poDataset);
 			return 1;
 			}
+
 		}
+	//Not necessary handled by ::GDALOpen
+	/*else
+		{
+		::CPLprintf( "Sorry the dataset \"%s\" is not supported by GDAL or does not exist or is corrupted, Exiting...\n", pszFilePath);
+		}
+	*/
 	return 0;
 	}
 

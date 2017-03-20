@@ -5,15 +5,17 @@ This repository contain the cpp file of the gdal_rename application
 Overview:
 ------------------------------------------------------------------------------
 
-The goal of this application is to allow the user to rename a dataset regarding 
-the geographic metadatas (i.e.: coordinates) with some formating options 
-(Prefix, suffix, separator, zero left padding, numbers of digits, ...).
-It was originaly designed to be used on tiled datasets (as aerial orthophotos splited
-in 1 sq km tiles for example) to add a prefix or the zero left padding for sorting purpose.
-It is also usefull to update the naming pattern of a dataset which CRS as changed via gdalwarp.
+The goal of this application is to allow the user to rename a raster dataset 
+with it's SRS coordinates including it's companion files (world file...) with some 
+formating options (Prefix, suffix, separator, left zero padding, numbers of digits, ...).
+Orginaly it was made to rename tiled datasets downloaded from many sources to have 
+consistent namming pattern or to update the name after a SRS change with gdalwarp.
+You can choose a prefix, a corner (W/N by default) of the bounding box of the dataset 
+as reference point. You can also specify a separator for coordinate value, the numeric
+format of coordinates (integer, double) and the format of the sign.
 
 It is renaming one file at a time (the last parameter),so you'll have to use command like
-"for file" on windows batch or "find" on linux shell to rename all the files
+"for" or "for files" on windows batch or "find" on linux shell to rename all the files
 of a folder.
 
 This repository contain only the cpp file, you can find a full Visual Studio 2010
@@ -28,8 +30,10 @@ Authors:
 Version:
 ------------------------------------------------------------------------------
 
-* v0.0.6_20170303-01 : Changed EQUALN to EQUAL on some tests and added companion 
-					   files for jp2, j2k and img datasets.
+* v0.0.7_20170320-01 : Added --output-console option to allow the print(in the console) 
+of the command line to perform the rename instead of doing it. It allow user to create 
+a batch file using redirection operator of the system	console '>', '>>', '|'...					
+					   Added a "sDirSep" with the OS dependant directory separator. 		
 
 Usage:
 ------------------------------------------------------------------------------
@@ -84,6 +88,9 @@ Parameters full descirption :
 
 History:
 ------------------------------------------------------------------------------
+* v0.0.6_20170317-01 : Changed EQUALN to EQUAL on some tests and added companion 
+					   files for jp2, j2k and img datasets.
+
 * v0.0.5_20170303-01: Added double coord formating
 
 * v0.0.4_20170228-01: Added Coord Sign Policy
