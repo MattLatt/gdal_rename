@@ -6,22 +6,23 @@ Overview:
 ------------------------------------------------------------------------------
 
 The goal of this application is to allow the user to rename a raster dataset 
-with it's SRS coordinates including it's companion files (world file...) with some 
+with it's SRS coordinates including it's sibling files (world file...) with some 
 formating options (Prefix, suffix, separator, left zero padding, numbers of digits, ...).
-Orginaly it was made to rename tiled datasets downloaded from many sources to have 
-consistent namming pattern or to update the name after a SRS change with gdalwarp.
+Orginaly it was made to rename tiled datasets downloaded from different sources to have 
+a consistent namming pattern or to update the name after a SRS change with gdalwarp.
 You can choose a prefix, a corner (W/N by default) of the bounding box of the dataset 
 as reference point. You can also specify a separator for coordinate value, the numeric
 format of coordinates (integer, double) and the format of the sign.
 
-It is renaming one file at a time (the last parameter),so you'll have to use command like
+It rename one file at a time (the last parameter), so you'll have to use command like
 "for" or "for files" on windows batch or "find" on linux shell to rename all the files
 of a folder.
 
 This repository contain only the cpp file, you can find a full Visual Studio 2010
 Workspace linked with GDAL dll in my GDAL_2.2.x_VC repository
 here: https://github.com/MattLatt/GDAL_2.2.x_VC   
-There is also a Code::Blocks project here: https://github.com/MattLatt/gdal_rename-cb   
+There is also a repository with a Code::Blocks project to build it with gcc
+here: https://github.com/MattLatt/gdal_rename-cb   
 
 
 Authors:
@@ -33,9 +34,9 @@ Version:
 ------------------------------------------------------------------------------
 
 
-* v0.0.8_20170530-01 : Refactored "comp*" variables to "sibling*", compiled on linux (gdal 2.2.0 + g++ 5.4.0 + 
-        Ubuntu 16.04 + Code::Blocks 16.01). rewrite proc "renameFileNoOverWrite"  as the posix rename() function
-        mapped by ::VSILRename overwrite already existing by default on linux while failing on windows
+* v0.0.8_20170530-01 : Refactored "comp*" variables to "sibling*", compiled on linux (gdal 2.2.0 + gcc 5.4.0 + 
+        Ubuntu 16.04 + Code::Blocks 16.01). Rewrited proc "renameFileNoOverWrite"  as the posix rename() function
+        mapped by VSILRename overwrite already existing by default on linux while failing on windows
 
 
 Usage:
@@ -63,7 +64,7 @@ Parameters full descirption :
 				   Prefix_XXXXXXXXXXX.EXT)
 				  
 * **--coord-length|-l**: number of digits to use in coordinates value 
-						 for file renaming starting with high wheight 
+						 for file renaming, starting with high wheight 
 						 digits (i.e.: using 4 with a easting value of
 						 621000.0 will print 06210 with zero padding and
 						 6210 without)
@@ -71,8 +72,8 @@ Parameters full descirption :
 * **--coord-decimal-length|-d**: number of digits to use in decimal part for real coordinates\n"
 						
 * **--coord-zero-padding|-z**: wether or not left padding coordinate with 0 
-							   if there is an inequal number of digits between
-							   easting and northing value
+							   in case of an inequal number of digits between
+							   easting and northing values.
 							  
 * **--coord-type|-t**: '''int''' or '''real''' used to format coordinates in name
 
