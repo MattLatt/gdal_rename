@@ -2,30 +2,34 @@
 //									gdal_rename										//
 //**********************************************************************************//
 // Desc: Command line executable to rename a GDAL raster dataset with it's SRS 		//
-//		 coordinates including it's companion files (world file...) with some		//
+//		 coordinates including it's sibling files (world file...) with some		    //
 //		 formating options (Prefix, suffix, separator, left zero padding, numbers  	//
 //		 of digits,...). Orginaly it was made to rename tiled datasets downloaded  	//
 //		 from manysources to have consistent namming pattern or to update the name 	//
 //		 after a SRS change with gdalwarp. 											//
 //		 																			//
 //		 																			//
-// Author: 	Mathieu Lattes (mathieu.lattes@yahoo.fr)								//
+// Author: 	Mathieu Lattes (mathieu dot lattes at yahoo dot fr)						//
 //																					//
 //		 																			//
-// Version:	v0.0.7_20170320-01 : Added --output-console option to allow the print	//
+// Version:	v0.0.8_20170530-01 : Refactored "comp*" variables to "sibling*" and     //
+//          compiled on linux (gdal 2.2.0 + g++ 5.4.0 + Ubuntu 16.04 +              //
+//          Code::Blocks 16.01. Change renameFileNoOverWrite proc as the posix      //
+//		 	rename() function mapped by ::VSILRename overwrite by default on linux  //
+//          and return error on windows                                             //
+//																					//
+//**********************************************************************************//
+// History:	v0.0.7_20170320-01 : Added --output-console option to allow the print	//
 //			(in the console) of the command line to perform the rename instead of	//
 //			doing it. It allow user to create a batch file using redirection	 	//
 //			operator of the system	console '>', '>>', '|'...						//
 //			Added a "sDirSep" with the OS dependant directory separator. 			//
 //		 																			//
-// ToDo: Full test with other drivers, add CRS name or code	to the renaming policy	//
-//																					//
-//**********************************************************************************//
-// History:	v0.0.6_20170317-01 : Changed EQUALN to EQUAL on some tests and added	//
-//			companion files for jp2, j2k and img datasets.							//
+//          v0.0.6_20170317-01 : Changed EQUALN to EQUAL on some tests and added	//
+//			sibling files for jp2, j2k and img datasets.							//
 //			v0.0.5_20170303-01 : Added double coord formating						//
 //			v0.0.4_20170228-01 : Added Coord Sign Policy							//
-//			v0.0.3_20170224-01 : Small buggs fixs (only first companion file renamed//
+//			v0.0.3_20170224-01 : Small buggs fixs (only first sibling file renamed  //
 //								, Missing EQUAL() for -f test...					//
 //			v0.0.2_20170106-01 : using std lib instead of char * as str container	//
 //			v0.0.1 : initial release without std lib								//
@@ -54,6 +58,33 @@ std::string  sDirSep = "\\";
 std::string  sDirSep = "/";
 #endif
 
+//!Return number of digits from integer part of double
+int nDigits (double dValue);
+
+//!Get integer coordinate from GDALDataset
+double getCoord (char refPointPart, double *adfGeoTransform, GDALDataset *poDataset);
+//!Get char of coordinate hemisphere from GDALDataset
+
+char getCoordHemi (char refPointPart, double *adfGeoTransform, GDALDataset *poDataset);
+//!Call VSIL rename function and rename old file if already existing
+bool renameFileNoOverWrite (std::string sourcePath, std::string newPath);
+
+//!Get world file extension of a GDALDataset
+std::string getWorldFileExt (std::string inputFile);
+
+//!Get an array of sibling files extensions of a dataset (ie: tfw, prj
+//!for a tif file). Need to be populated for other datasets !!!
+std::vector<std::string> getSiblingFilesExt (std::string inputFile);
+
+//!Usage
+static void Usage(const char* pszErrorMsg = NULL);
+
+//!Check whether or not the given refpoint is good
+bool checkRefPoint(const char* CoordRefPoint);
+
+//!format the rename command line for output in the console
+std::string formatRenameCmdLine(const char* pszSystemType, const char* pszSourceName, const char* pszNewName);
+
 //***********************************************************************//
 //!Return number of digits from integer part of double
 //***********************************************************************//
@@ -75,9 +106,9 @@ double getCoord (char refPointPart, double *adfGeoTransform, GDALDataset *poData
 		case 'E' : Coord = (adfGeoTransform[0]+(poDataset->GetRasterXSize()*adfGeoTransform[1])); break;
 		case 'S' : Coord = (adfGeoTransform[3]+(poDataset->GetRasterYSize()*adfGeoTransform[5])); break;
 		case 'N' : Coord = adfGeoTransform[3]; break;
-		default	 : Coord = adfGeoTransform[0]; 
+		default	 : Coord = adfGeoTransform[0];
 		}
-	
+
 	return Coord;
 	}
 
@@ -95,11 +126,11 @@ char getCoordHemi (char refPointPart, double *adfGeoTransform, GDALDataset *poDa
 		case 'E' : Coord = (adfGeoTransform[0]+(poDataset->GetRasterXSize()*adfGeoTransform[1])); break;
 		case 'S' : Coord = (adfGeoTransform[3]+(poDataset->GetRasterYSize()*adfGeoTransform[5])); break;
 		case 'N' : Coord = adfGeoTransform[3]; break;
-		default	 : Coord = adfGeoTransform[0]; 
+		default	 : Coord = adfGeoTransform[0];
 		}
-	
+
 	if ( Coord >= 0 )
-		{ 
+		{
 		if (refPointPart == 'W' || refPointPart == 'E')
 			{ Hemi = 'E'; }
 		else
@@ -111,7 +142,7 @@ char getCoordHemi (char refPointPart, double *adfGeoTransform, GDALDataset *poDa
 			{ Hemi = 'W'; }
 		else
 			{ Hemi = 'S'; }
-		}	
+		}
 
 	return Hemi;
 	}
@@ -121,28 +152,42 @@ char getCoordHemi (char refPointPart, double *adfGeoTransform, GDALDataset *poDa
 //***********************************************************************//
 bool renameFileNoOverWrite (std::string sourcePath, std::string newPath)
 	{
-	int Success =  ::VSIRename( sourcePath.c_str(), newPath.c_str() );
-		
-	//already exist ?
-	if (Success == -1)
-		{
-		std::string sNewFilePathTmp = newPath.substr(0,newPath.length()-4);
-		sNewFilePathTmp += "_OldName" + newPath.substr(newPath.length()-4, 4);
+    ::VSIStatBufL psStatBuf;
+    int renameSuccess = -1, renameBackupSuccess = -1;
 
-		//trying to rename already existing file  
-		Success = ::VSIRename( newPath.c_str(), sNewFilePathTmp.c_str() );
-			
-		if ( Success == 0 )
-			//do the inital rename if success
-			{ Success =  ::VSIRename( sourcePath.c_str(), newPath.c_str() ); }
-		else
-			//exit program
+    if (::VSIStatExL ( newPath.c_str(), &psStatBuf, VSI_STAT_EXISTS_FLAG) == 0 )
+        {
+		std::string sNewFilePathTmp = newPath.substr(0,newPath.length()-4);
+		sNewFilePathTmp += "_OldOne" + newPath.substr(newPath.length()-4, 4);
+
+        if ( ::VSIStatExL ( sNewFilePathTmp.c_str(), &psStatBuf, VSI_STAT_EXISTS_FLAG) == 0 )
 			{
 			std::cout << "Error while renaming \"" << sourcePath << "\" to \"" << newPath << "\"" << std::endl;
-			std::cout << "Check if file exist, is not already opened or check file access rights...." << std::endl ;
+			std::cout << "Both new name and new name backup file already exist, unable to perform the rename...." << std::endl ;
 			return false;
-			}
-		}
+            }
+        else
+            {
+            //backuping the file already existing with the new naming convention
+            renameBackupSuccess = ::VSIRename( newPath.c_str(), sNewFilePathTmp.c_str() );
+            if ( renameBackupSuccess == 0 )
+                //do the inital rename if success
+                { renameSuccess =  ::VSIRename( sourcePath.c_str(), newPath.c_str() ); }
+            else
+                {
+                std::cout << "Error while backuping \"" << newPath << "\" to \"" << sNewFilePathTmp << "\"" << std::endl;
+                std::cout << "unable to perform the rename...." << std::endl ;
+                return false;
+                }
+            }
+        }
+    else
+        { renameSuccess =  ::VSIRename( sourcePath.c_str(), newPath.c_str() ); }
+
+	if ( renameSuccess == 0 )
+		{ return true;}
+    else
+        { std::cout << "Error while renaming \"" << sourcePath << "\" to \"" << newPath << "\"" << std::endl; }
 
 	}
 
@@ -150,8 +195,8 @@ bool renameFileNoOverWrite (std::string sourcePath, std::string newPath)
 //!Get world file extension of a GDALDataset
 //***********************************************************************//
 std::string getWorldFileExt (std::string inputFile)
-	{	
-	std::vector<std::string> compFilesExt;
+	{
+	std::vector<std::string> siblingFilesExt;
 
 	std::string inputExt = ::CPLGetExtension(inputFile.c_str());
 
@@ -161,47 +206,48 @@ std::string getWorldFileExt (std::string inputFile)
 	}
 
 
-
 //***********************************************************************//
-//!Get an array of companion files extensions of a dataset (ie: tfw, prj
+//!Get an array of sibling files extensions of a dataset (ie: tfw, prj
 //!for a tif file). Need to be populated for other datasets !!!
 //***********************************************************************//
-std::vector<std::string> getCompFilesExt (std::string inputFile)
-	{	
-	std::vector<std::string> compFilesExt;
+std::vector<std::string> getSiblingFilesExt (std::string inputFile)
+	{
+	std::vector<std::string> siblingFilesExt;
 	std::string inputExt = ::CPLGetExtension(inputFile.c_str());
-	
-	compFilesExt.push_back(getWorldFileExt(inputFile));
+
+	siblingFilesExt.push_back(getWorldFileExt(inputFile));
 
 	if ( EQUAL(inputExt.c_str(), "tif"))
-		{ compFilesExt.push_back("prj"); }
+		{ siblingFilesExt.push_back("prj"); }
 
 	if ( EQUAL(inputExt.c_str(), "ecw"))
-		{ compFilesExt.push_back("ers"); }
+		{ siblingFilesExt.push_back("ers"); }
 
 	if ( EQUAL(inputExt.c_str(), "img"))
 		{
-		compFilesExt.push_back("led");
-		compFilesExt.push_back("nul");
-		compFilesExt.push_back("trl");
-		compFilesExt.push_back("vol");
+		siblingFilesExt.push_back("led");
+		siblingFilesExt.push_back("nul");
+		siblingFilesExt.push_back("trl");
+		siblingFilesExt.push_back("vol");
 		}
-	
-	if ( EQUAL(inputExt.c_str(), "jp2") || EQUAL(inputExt.c_str(), "j2k"))
-		{ compFilesExt.push_back("prj"); }
 
-	return compFilesExt;
+	if ( EQUAL(inputExt.c_str(), "jp2") || EQUAL(inputExt.c_str(), "j2k"))
+		{ siblingFilesExt.push_back("prj"); }
+
+	return siblingFilesExt;
 	}
+
+
 
 /************************************************************************/
 /*                               Usage()                                */
 /************************************************************************/
-static void Usage(const char* pszErrorMsg = NULL)
+static void Usage(const char* pszErrorMsg)
 	{
     printf( "Usage: gdal_rename [--help|-h] [--input-file-to-rename|-i] [--refpoint|-r]\n"
 			"                   { [--coord-zero-padding|-z] [--coord-length|-l]\n"
 			"                     [--coord-type|-t] [--coord-sep|-s] [--prefix|-p]\n"
-			"                     [--suffix|-s] } | { [--printf-syntax|-f] }\n" 
+			"                     [--suffix|-s] } | { [--printf-syntax|-f] }\n"
 			"					[--output-console|-o]\n"
 			"					dataset_to_rename\n\n\n" );
 
@@ -241,7 +287,7 @@ static void Usage(const char* pszErrorMsg = NULL)
 bool checkRefPoint(const char* CoordRefPoint)
 	{
 	bool Success = false;
-	
+
 	if ( strlen(CoordRefPoint)==2)
 		{
 		if ( EQUAL(CoordRefPoint, "WN" ) || EQUAL(CoordRefPoint, "EN" ) || EQUAL(CoordRefPoint, "NW" ) || EQUAL(CoordRefPoint, "NE" ) ||
@@ -269,7 +315,7 @@ std::string formatRenameCmdLine(const char* pszSystemType, const char* pszSource
 	sCommandLine += pszSourceName;
 	sCommandLine += "\" \"";
 	sCommandLine += pszNewName;
-	sCommandLine += "\"\n";	
+	sCommandLine += "\"\n";
 
 	return sCommandLine.c_str();
 	}
@@ -283,20 +329,20 @@ int main(int argc, char* argv[])
     ::EarlySetConfigOptions(argc, argv);
 
     ::GDALAllRegister();
-				
+
 	const char *pszFilePath = "Test.tif";
-	const char *pszCoordRefPoint = "WN"; // any Easting/Northing pair combination in the following list N, E, S, W 
-	bool		pszCoordPadding = true; 
+	const char *pszCoordRefPoint = "WN"; // any Easting/Northing pair combination in the following list N, E, S, W
+	bool		pszCoordPadding = true;
 	bool		printUsage = false;
-	const char *pszCoordLenght = "7"; 
-	const char *pszCoordDecLenght = "3"; 
+	const char *pszCoordLenght = "7";
+	const char *pszCoordDecLenght = "3";
 	const char *pszCoordType = ""; //"reel"
 	const char *pszCoordSignType = "std"; // "std , force or geo"
-	const char *pszCoordSep = "_"; 
-	const char *pszPrefix = ""; 
+	const char *pszCoordSep = "_";
+	const char *pszPrefix = "";
 	const char *pszSuffix = "";
 	const char *pszPrintf= ""; // printf syntax for the whole renaming string ex: "Tile_%.4d_%.4d_SRS" /!\ no syntax check
-	const char *pszOutputConsole = "";	//"win" or "unix"			
+	const char *pszOutputConsole = "";	//"win" or "unix"
 
     argc = ::GDALGeneralCmdLineProcessor( argc, &argv, 0 );
 
@@ -309,8 +355,8 @@ int main(int argc, char* argv[])
 
 			if( EQUAL(argv[i], "--refpoint") || EQUAL(argv[i], "-r") ) //WN, WS, EN, ES
 				{
-				pszCoordRefPoint = argv[i+1]; 
-				
+				pszCoordRefPoint = argv[i+1];
+
 				if ( !checkRefPoint(pszCoordRefPoint) )
 					{ pszCoordRefPoint = "WN"; } // Top Left by default
 				}
@@ -318,7 +364,7 @@ int main(int argc, char* argv[])
 			if( EQUAL(argv[i], "--coord-zero-padding") || EQUAL(argv[i], "-z") )
 				{ pszCoordPadding = true; }
 
-			if( EQUAL(argv[i], "--coord-length") || EQUAL(argv[i], "-l") ) // number of digits for coord to use for renaming 
+			if( EQUAL(argv[i], "--coord-length") || EQUAL(argv[i], "-l") ) // number of digits for coord to use for renaming
 				{ pszCoordLenght = argv[i+1]; }							   // /!\ if integer and less than number removed by right
 
 			if( EQUAL(argv[i], "--coord-decimal-length") || EQUAL(argv[i], "-d") ) // size of number of coord to use for renaming /!\ if less than number removed by right
@@ -342,32 +388,32 @@ int main(int argc, char* argv[])
 			if( EQUAL(argv[i], "--printf-syntax") || EQUAL(argv[i], "-f") ) // use instead of --coord-sign, --coord-padding, --coord-type, --coord-lenght, --prefix, --suffix
 				{ pszPrintf = argv[i+1]; }
 
-			if( EQUAL(argv[i], "--output-console")|| EQUAL(argv[i], "-o")  ) //"win" or "unix", default empty performing the rename on the file system
+			if( EQUAL(argv[i], "--output-console")|| EQUAL(argv[i], "-o")  ) //"win" or "unix", default empty, performing the rename on the console instead of the file system
 				{ pszOutputConsole = argv[i+1]; }
 
 			}
 		pszFilePath = argv [argc - 1];
 		}
 
-	if (argc <= 1 || printUsage) 
+	if (argc <= 1 || printUsage)
 		{ Usage(); }
 
     ::GDALDataset  *poDataset = NULL;
 
 	std::string inputDataset = pszFilePath;
-	
+
 	std::string sFilename	= ::CPLGetFilename(pszFilePath);
 	std::string sDirName	= ::CPLGetDirname(pszFilePath);
 	std::string sExt		= ::CPLGetExtension(pszFilePath);
 	std::string sBasename	= ::CPLGetBasename(pszFilePath);
-	
+
 	std::string sNewFileName;
-	std::string sCompFileName = sDirName + sDirSep + sBasename + "." ;
+	std::string sSiblingFileName = sDirName + sDirSep + sBasename + "." ;
 	std::string sMainPrintfStx ;
 
 
 	poDataset = (GDALDataset *) ::GDALOpen( pszFilePath, GA_ReadOnly );
-   
+
 	if( poDataset != NULL )
 		{
 		double        adfGeoTransform[6];
@@ -377,7 +423,7 @@ int main(int argc, char* argv[])
 			std::string sCoordPrintfStx ;
 
 			double Coord0 = .0, Coord1 = .0;
-			int iCoord0 = 0, iCoord1 = 0; 
+			int iCoord0 = 0, iCoord1 = 0;
 			char Sign0 = 0x00, Sign1 = 0x00;
 
 			Coord0 = getCoord(pszCoordRefPoint[0], adfGeoTransform, poDataset);
@@ -401,14 +447,14 @@ int main(int argc, char* argv[])
 
 				if ( EQUAL(pszCoordType , "real") )
 					{
-					
+
 					if ( pszCoordPadding && pszCoordLenght != "") //if real padding is made with %0n where n is a digit or %0* with extra param
 						{ sCoordPrintfStx = sCoordPrintfStx + "0" + pszCoordLenght + "." + pszCoordDecLenght + "f"; }
-					
+
 					}
 				else
 					{
-					
+
 					if ( pszCoordPadding && pszCoordLenght != "") //if real padding is made with %0n where n is a digit or %0* with extra param
 						{ sCoordPrintfStx = sCoordPrintfStx + "." + pszCoordLenght + "d"; }
 
@@ -436,7 +482,7 @@ int main(int argc, char* argv[])
 
 			try
 				{
-				if ( EQUAL(pszCoordType , "real") ) 
+				if ( EQUAL(pszCoordType , "real") )
 					{
 					if ( EQUAL(pszCoordSignType , "geo") )
 						{::CPLsnprintf(pszNewFileName, 256, sMainPrintfStx.c_str(), Sign0 ,Coord0, Sign1 , Coord1);}
@@ -453,7 +499,7 @@ int main(int argc, char* argv[])
 				}
 			catch (...)
 				{
-				::CPLprintf( "/!\ printf issue while building new file name \"%s\"\nIf you used --printf-syntax|-f check it is right\notherwise please submit the bugg at https://github.com/MattLatt/gdal_rename\n", pszFilePath);
+				::CPLprintf( "/!\\ printf issue while building new file name \"%s\"\nIf you used --printf-syntax|-f check it is right\notherwise please submit the bugg at https://github.com/MattLatt/gdal_rename\n", pszFilePath);
 				::GDALClose((GDALDatasetH)poDataset);
 				return 1;
 				}
@@ -467,25 +513,25 @@ int main(int argc, char* argv[])
 				{
 				bool Success =  renameFileNoOverWrite(pszFilePath, sNewFilePath) ;
 				if (!Success)
-					{ ::CPLprintf( "/!\ printf issue while renaming file \"%s\"\nCheck the file is not locked or still exist !!!\n", pszFilePath); }
+					{ ::CPLprintf( "/!\\ printf issue while renaming file \"%s\"\nCheck the file is not locked or still exist !!!\n", pszFilePath); }
 				}
 			else
-				{ ::CPLprintf( formatRenameCmdLine( pszOutputConsole, pszFilePath, sNewFilePath.c_str()).c_str() );}
+				{ std::cout << formatRenameCmdLine( pszOutputConsole, pszFilePath, sNewFilePath.c_str()).c_str() << std::endl;}
 
-			std::vector<std::string> CompFilesExts = getCompFilesExt(pszFilePath);
-			std::vector<std::string>::iterator it = CompFilesExts.begin();
+			std::vector<std::string> SiblingFilesExts = getSiblingFilesExt(pszFilePath);
+			std::vector<std::string>::iterator it = SiblingFilesExts.begin();
 
-			while ( it != CompFilesExts.end() )
+			while ( it != SiblingFilesExts.end() )
 				{
-				std::string sCurCompFileName = sCompFileName;
+				std::string sCurSiblingFileName = sSiblingFileName;
 
-				sCurCompFileName += (*it).c_str();
-				std::string sNewCompFilePath = sDirName + sDirSep + pszNewFileName + "." + (*it).c_str() ;
-			
+				sCurSiblingFileName += (*it).c_str();
+				std::string sNewSiblingFilePath = sDirName + sDirSep + pszNewFileName + "." + (*it).c_str() ;
+
 				if ( EQUAL(pszOutputConsole, "") )
-					{ renameFileNoOverWrite(sCurCompFileName, sNewCompFilePath) ; }
+					{ renameFileNoOverWrite(sCurSiblingFileName, sNewSiblingFilePath) ; }
 				else
-					{ ::CPLprintf( formatRenameCmdLine( pszOutputConsole, sCurCompFileName.c_str(), sNewCompFilePath.c_str()).c_str() );}
+					{ std::cout << formatRenameCmdLine( pszOutputConsole, sCurSiblingFileName.c_str(), sNewSiblingFilePath.c_str()).c_str() << std::endl ;}
 
 				++it;
 				}
@@ -493,18 +539,14 @@ int main(int argc, char* argv[])
 			}
 		else
 			{
-			::CPLprintf( "/!\ No GeoRef information found by GDAL in the file \"%s\", Exiting...\n", pszFilePath);
+			::CPLprintf( "/!\\ No GeoRef information found by GDAL in the file \"%s\", Exiting...\n", pszFilePath);
 			::GDALClose((GDALDatasetH)poDataset);
 			return 1;
 			}
 
 		}
-	//Not necessary handled by ::GDALOpen
-	/*else
-		{
-		::CPLprintf( "Sorry the dataset \"%s\" is not supported by GDAL or does not exist or is corrupted, Exiting...\n", pszFilePath);
-		}
-	*/
+
+
 	return 0;
 	}
 
