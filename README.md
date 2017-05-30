@@ -48,7 +48,8 @@ gdal_rename [--help|-h] [--refpoint|-r]
 &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;[--suffix|-s]  
 &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;}   
 &nbsp;&nbsp;&nbsp;&nbsp;|   
-&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;{ [--printf-syntax|-f] }   
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;{ [--printf-syntax|-f] }  
+&nbsp;&nbsp;&nbsp;&nbsp;[--output-console|-o]  
 &nbsp;&nbsp;&nbsp;&nbsp;dataset_to_rename   
 
 Parameters full descirption :
@@ -88,6 +89,12 @@ Parameters full descirption :
 						  Don't forget to use %% instead of % for substitutions
 						  on windows batch.
 						  Use this parameters if you know what you are doing...
+
+* **--output-console|-o**: accept a string must be "win" or "unix".
+						  If specified, print (in the console) the command to
+						  perform the rename instead of doing it. It allow the user to  
+						  create a batch file using system console redirection operator
+						  like '>', '>>', '|'...	
 
 History:
 ------------------------------------------------------------------------------

@@ -271,9 +271,11 @@ static void Usage(const char* pszErrorMsg)
 			" --printf-syntax|-f: a string with printf syntax instead of all the previous parameters\n"
 			"                     (ie: Tiles_%.4d-%.4d_Lambert93) /!\ no syntaxic check\n"
 			"                     and only 2 substitution allowed for easting/northing\n"
-			" --output-console|-o: whether or not outpouting the console command to perform\n"
-			"					   the rename instead of doing it on the file system. 'win' or 'unix' to\n"
-			"					   output the command for windows batch or linux bash format\n");
+			" --output-console|-o: a string must be \"win\" or \"unix\".\n"
+			"                     If specified, print (in the console) the command to\n"
+			"                     perform the rename instead of doing it. It allow the user to\n"  
+			"                     create a batch file using system console redirection operator\n"
+			"                     like '>', '>>', '|'...\n");
 
     if( pszErrorMsg != NULL )
         fprintf(stderr, "\nFAILURE: %s\n", pszErrorMsg);
