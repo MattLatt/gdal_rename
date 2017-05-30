@@ -91,7 +91,7 @@ Parameters full descirption :
 						  on windows batch.
 						  Use this parameters if you know what you are doing...
 
-* **--output-console|-o**: accept a string must be "win" or "unix".
+* **--output-console|-o**: a string must be "win" or "unix".
 						  If specified, print (in the console) the command to
 						  perform the rename instead of doing it. It allow the user to  
 						  create a batch file using system console redirection operator
@@ -99,7 +99,7 @@ Parameters full descirption :
 
 History:
 ------------------------------------------------------------------------------
-* v0.0.7_20170320-01 : Added --output-console option to allow the print(in the console) 
+* v0.0.7_20170320-01 : Added --output-console option to allow the print (in the console) 
 of the command line to perform the rename instead of doing it. It allow user to create 
 a batch file using redirection operator of the system	console '>', '>>', '|'...					
 					   Added a "sDirSep" with the OS dependant directory separator. 		
