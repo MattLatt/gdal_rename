@@ -1,0 +1,28 @@
+CPP=g++
+CPPFLAGS=-W -Wall -std=c++11 -pedantic
+GDALSRC=/0/TOOLS/GDAL/gdal-2.3.0
+INC=-I$(GDALSRC)/alg -I$(GDALSRC)/apps -I$(GDALSRC)/frmts -I$(GDALSRC)/core -I$(GDALSRC)/ogr -I$(GDALSRC)/port -I$(GDALSRC)/frmts/vrt -I$(GDALSRC)/ogr/ogrsf_frmts/geojson -I$(GDALSRC)/ogr/ogrsf_frmts/geojson/libjson
+LDFLAGS=
+LDLIBS=gdal
+EXEC=gdal_rename
+#SRC= $(wildcard *.cpp)
+#OBJ= $(SRC:.cpp=.o)
+
+all: $(EXEC)
+
+gdal_rename: gdal_rename.o
+	$(CPP) -o gdal_rename gdal_rename.o $(LDFLAGS)
+#	@$(CPP) -o $@ $^ $(LDFLAGS)
+
+
+%.o: %.cpp
+	$(CPP) -o gdal_rename.o gdal_rename.cpp $(CPPFLAGS) $(INC)
+#	@$(CPP) -o $@ -cpp $< $(CFLAGS)
+
+.PHONY: clean mrproper
+
+clean:
+	@rm -rf *.o
+
+mrproper: clean
+	@rm -rf $(EXEC)

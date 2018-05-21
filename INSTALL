@@ -1,0 +1,5 @@
+autoreconf -vfi
+./configure --prefix=/home/mlattes/local --with-gdal=/home/mlattes/local/bin/gdal-config
+make && make install
+
+
