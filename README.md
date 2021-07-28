@@ -5,7 +5,7 @@ This repository contain the cpp file of the gdal_rename application
 Overview:
 ------------------------------------------------------------------------------
 
-The goal of this application is to allow the user to rename a raster dataset 
+The aim of this application is to allow the user to rename a raster dataset 
 with it's SRS coordinates including it's sibling files (world file...) with some 
 formating options (Prefix, suffix, separator, left zero padding, numbers of digits, ...).
 Orginaly it was made to rename tiled datasets downloaded from different sources to have 
